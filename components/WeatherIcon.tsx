@@ -70,10 +70,22 @@ export const WeatherIcon: React.FC<WeatherIconProps> = ({
       }
   }
 
-  // MODIFICA CRUCIALE: Aggiungiamo 'public/' al percorso.
-  // In alcuni ambienti di sviluppo online, la root del server è la root del progetto,
-  // quindi bisogna specificare la cartella 'public'.
-  const imageSrc = `public/${imageName}`;
+  // COSTRUZIONE PERCORSO ROBUSTA
+  // FIX: Gestiamo il caso in cui import.meta.env non sia definito
+  // per evitare il crash "Cannot read properties of undefined"
+  let baseUrl = './';
+  try {
+    // @ts-ignore
+    if (import.meta && import.meta.env && import.meta.env.BASE_URL) {
+       // @ts-ignore
+       baseUrl = import.meta.env.BASE_URL;
+    }
+  } catch (e) {
+    // Ignora errori e usa il default
+  }
+    
+  const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  const imageSrc = `${cleanBaseUrl}${imageName}`;
 
   // --- RENDER ---
   
@@ -88,10 +100,7 @@ export const WeatherIcon: React.FC<WeatherIconProps> = ({
             style={{ width: size, height: size }}
             onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                // Logghiamo solo se non è già stato loggato per evitare spam
-                if (!imgError) {
-                    console.warn(`Fallback attivato. Impossibile caricare: ${target.src}`);
-                }
+                // console.warn(`Errore caricamento immagine: ${target.src}`);
                 setImgError(true);
             }}
           />
