@@ -1,5 +1,6 @@
 import { WeatherData, ForecastData } from '../types';
 
+// IMPORTANTE: Incolla qui la tua API Key di OpenWeatherMap
 const API_KEY = 'a45c353554c25fb96f9bd128126a11c0';
 const BASE_URL = 'https://api.openweathermap.org/data/2.5';
 
@@ -9,14 +10,26 @@ export const fetchWeatherByCity = async (city: string): Promise<WeatherData> => 
   }
 
   try {
+    let query = city.trim();
+    const lowerQuery = query.toLowerCase();
+    
+    // FIX: Risolve ambiguità per città italiane comuni che esistono anche in USA
+    // Se l'utente non specifica la nazione (virgola), forziamo IT per queste città
+    if (!lowerQuery.includes(',')) {
+        const ambiguousCities = ['roma', 'rome', 'verona', 'milano', 'milan', 'napoli', 'naples', 'venezia', 'venice', 'firenze', 'florence', 'torino', 'turin'];
+        if (ambiguousCities.includes(lowerQuery)) {
+            query = `${query},IT`;
+        }
+    }
+
     // Added lang=it for Italian descriptions
     const response = await fetch(
-      `${BASE_URL}/weather?q=${encodeURIComponent(city.trim())}&units=metric&lang=it&appid=${API_KEY}`
+      `${BASE_URL}/weather?q=${encodeURIComponent(query)}&units=metric&lang=it&appid=${API_KEY}`
     );
     
     if (!response.ok) {
-      if (response.status === 404) throw new Error('Città non trovata. Controlla il nome.');
-      if (response.status === 401) throw new Error('API Key non valida. Controlla la configurazione.');
+      if (response.status === 404) throw new Error('Città non trovata. Prova ad aggiungere il paese (es. "Parigi, FR").');
+      if (response.status === 401) throw new Error('API Key non valida. Controlla services/weatherService.ts');
       if (response.status === 429) throw new Error('Troppe richieste. Riprova più tardi.');
       throw new Error(`Errore meteo (${response.status})`);
     }

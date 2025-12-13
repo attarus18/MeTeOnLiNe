@@ -64,16 +64,26 @@ function App() {
   }, [currentIndex, errorMap]);
 
   const getBackgroundClass = (iconCode: string) => {
+    // 1. Prioritize FOG (Nebbia) logic implies a murky atmosphere day or night.
+    // Code '50' is Mist/Fog in OpenWeatherMap
+    if (iconCode.includes('50')) {
+        return iconCode.includes('n')
+            ? 'bg-gradient-to-b from-[#374151] via-[#1f2937] to-[#111827]' // Night Fog (Dark Grey/Mysterious)
+            : 'bg-gradient-to-b from-[#9ca3af] via-[#cbd5e1] to-[#e2e8f0]'; // Day Fog (Silver/Grey)
+    }
+
+    // 2. Generic Night
     if (iconCode.includes('n')) return 'bg-gradient-to-b from-[#0f1026] via-[#1a1c38] to-[#24243e]'; 
+    
+    // 3. Day Codes
     const code = iconCode.replace('d', '');
     switch (code) {
-      case '01': return 'bg-gradient-to-b from-[#2c88f7] to-[#86c0f8]';
-      case '02': case '03': return 'bg-gradient-to-b from-[#4e95e8] to-[#88b8e8]';
-      case '04': return 'bg-gradient-to-b from-[#6b7b8c] to-[#9aa9ba]';
-      case '09': case '10': return 'bg-gradient-to-b from-[#3a4b66] to-[#5d6d85]';
-      case '11': return 'bg-gradient-to-b from-[#2d3038] to-[#4a4d55]';
-      case '13': return 'bg-gradient-to-b from-[#9ba5b5] to-[#c2cddb]';
-      case '50': return 'bg-gradient-to-b from-[#606c75] to-[#8c969e]';
+      case '01': return 'bg-gradient-to-b from-[#2c88f7] to-[#86c0f8]'; // Clear
+      case '02': case '03': return 'bg-gradient-to-b from-[#4e95e8] to-[#88b8e8]'; // Few Clouds
+      case '04': return 'bg-gradient-to-b from-[#6b7b8c] to-[#9aa9ba]'; // Broken Clouds
+      case '09': case '10': return 'bg-gradient-to-b from-[#3a4b66] to-[#5d6d85]'; // Rain
+      case '11': return 'bg-gradient-to-b from-[#2d3038] to-[#4a4d55]'; // Thunder
+      case '13': return 'bg-gradient-to-b from-[#9ba5b5] to-[#c2cddb]'; // Snow
       default: return 'bg-gradient-to-b from-[#2c88f7] to-[#86c0f8]';
     }
   };
@@ -387,7 +397,7 @@ function App() {
             </div>
           </div>
         ) : currentData ? (
-          <div className="w-full max-w-lg mx-auto flex flex-col items-center animate-slide-up key={currentIndex}"> 
+          <div key={currentIndex} className="w-full max-w-lg mx-auto flex flex-col items-center animate-slide-up"> 
             
             {/* City Info */}
             <div className="flex flex-col items-center mt-4 mb-6">
@@ -402,8 +412,14 @@ function App() {
 
             {/* Weather Hero */}
             <div className="flex flex-col items-center mb-12 relative w-full select-none">
-              <div className="mb-4 filter drop-shadow-2xl scale-125 animate-float">
-                <WeatherIcon iconCode={currentData.weather[0].icon} size={150} />
+              <div className="mb-4 filter drop-shadow-2xl animate-float">
+                {/* Using Custom Image Logic via isHero Prop */}
+                <WeatherIcon 
+                    iconCode={currentData.weather[0].icon} 
+                    size={240} 
+                    isHero={true}
+                    windSpeed={currentData.wind.speed * 3.6} // Pass wind speed in km/h
+                />
               </div>
               
               <div className="text-[6.5rem] leading-none font-thin tracking-tighter text-white drop-shadow-xl ml-4">
@@ -467,7 +483,11 @@ function App() {
                           {idx === 0 ? 'Ora' : item.dt_txt.split(' ')[1].substring(0, 5)}
                         </span>
                         <div className="my-1 pointer-events-none">
-                          <WeatherIcon iconCode={item.weather[0].icon} size={28} />
+                          <WeatherIcon 
+                             iconCode={item.weather[0].icon} 
+                             size={28} 
+                             windSpeed={item.wind.speed * 3.6} 
+                          />
                         </div>
                         <span className="text-lg font-semibold">{Math.round(item.main.temp)}°</span>
                       </div>
@@ -502,7 +522,11 @@ function App() {
                         >
                           <span className="w-28 font-medium text-lg pointer-events-none">{dayName}</span>
                           <div className="flex items-center gap-2 flex-1 justify-center pointer-events-none">
-                            <WeatherIcon iconCode={item.weather[0].icon} size={24} />
+                            <WeatherIcon 
+                                iconCode={item.weather[0].icon} 
+                                size={24} 
+                                windSpeed={item.wind.speed * 3.6}
+                            />
                             {item.pop >= 0.2 && (
                               <span className="text-xs text-blue-100 font-bold bg-blue-500/40 px-1.5 py-0.5 rounded">
                                 {Math.round(item.pop * 100)}%
