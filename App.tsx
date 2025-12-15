@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Menu, Heart, Droplets, Wind, Navigation, Plus, AlertCircle, RefreshCw, WifiOff, MapPinOff } from 'lucide-react';
+import { Menu, Heart, Droplets, Wind, Navigation, Plus, AlertCircle, RefreshCw, WifiOff, MapPinOff, Leaf, Gauge } from 'lucide-react';
 import { fetchWeatherByCity, fetchWeatherByCoords, fetchForecastByCoords } from './services/weatherService';
 import { WeatherData, ForecastData, FavoriteCity, ForecastItem, AppLocation } from './types';
 import { WeatherIcon } from './components/WeatherIcon';
@@ -272,6 +272,15 @@ function App() {
     }
   };
 
+  const getAQILabel = (aqi?: number) => {
+    if (!aqi) return "--";
+    if (aqi === 1) return "Ottima";
+    if (aqi === 2) return "Buona";
+    if (aqi === 3) return "Discreta";
+    if (aqi === 4) return "Scadente";
+    return "Pessima";
+  };
+
   // --- Render Helpers ---
 
   const currentData = weatherCache[currentIndex];
@@ -301,6 +310,7 @@ function App() {
         item={selectedForecastItem} 
         fullForecast={currentForecast?.list || []}
         onClose={() => setSelectedForecastItem(null)} 
+        aqi={currentData?.aqi} // Pass Current AQI as context
       />
 
       {/* Drawer */}
@@ -411,12 +421,12 @@ function App() {
             </div>
 
             {/* Weather Hero */}
-            <div className="flex flex-col items-center mb-12 relative w-full select-none">
+            <div className="flex flex-col items-center mb-10 relative w-full select-none">
               <div className="mb-4 filter drop-shadow-2xl animate-float">
                 {/* Using Custom Image Logic via isHero Prop */}
                 <WeatherIcon 
                     iconCode={currentData.weather[0].icon} 
-                    size={240} 
+                    size={220} 
                     isHero={true}
                     windSpeed={currentData.wind.speed * 3.6} // Pass wind speed in km/h
                 />
@@ -448,19 +458,45 @@ function App() {
               </button>
             </div>
 
-            {/* Grid Stats */}
-            <div className="w-full grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-white/10 backdrop-blur-md rounded-[2rem] p-5 flex flex-col gap-1 border border-white/10 shadow-lg">
-                <div className="flex items-center gap-2 text-xs opacity-60 font-bold uppercase tracking-wider mb-1">
+            {/* Grid Stats 2x2 */}
+            <div className="w-full grid grid-cols-2 gap-3 mb-6">
+              <div className="bg-white/10 backdrop-blur-md rounded-[1.8rem] p-4 flex flex-col gap-1 border border-white/10 shadow-lg">
+                <div className="flex items-center gap-2 text-[10px] opacity-60 font-bold uppercase tracking-wider mb-1">
                   <Wind size={14} /> Vento
                 </div>
-                <span className="text-2xl font-medium">{Math.round(currentData.wind.speed * 3.6)} <span className="text-sm opacity-60 font-normal">km/h</span></span>
+                <span className="text-xl font-medium">{Math.round(currentData.wind.speed * 3.6)} <span className="text-sm opacity-60 font-normal">km/h</span></span>
               </div>
-              <div className="bg-white/10 backdrop-blur-md rounded-[2rem] p-5 flex flex-col gap-1 border border-white/10 shadow-lg">
-                <div className="flex items-center gap-2 text-xs opacity-60 font-bold uppercase tracking-wider mb-1">
+              <div className="bg-white/10 backdrop-blur-md rounded-[1.8rem] p-4 flex flex-col gap-1 border border-white/10 shadow-lg">
+                <div className="flex items-center gap-2 text-[10px] opacity-60 font-bold uppercase tracking-wider mb-1">
                   <Droplets size={14} /> Umidità
                 </div>
-                <span className="text-2xl font-medium">{currentData.main.humidity}<span className="text-sm opacity-60 font-normal">%</span></span>
+                <span className="text-xl font-medium">{currentData.main.humidity}<span className="text-sm opacity-60 font-normal">%</span></span>
+              </div>
+              
+              {/* AQI CARD */}
+              <div className="bg-white/10 backdrop-blur-md rounded-[1.8rem] p-4 flex flex-col gap-1 border border-white/10 shadow-lg relative overflow-hidden group">
+                <div className="flex items-center gap-2 text-[10px] opacity-60 font-bold uppercase tracking-wider mb-1">
+                  <Leaf size={14} /> Qualità Aria
+                </div>
+                <div className="flex items-baseline gap-2">
+                    <span className="text-xl font-medium truncate">{getAQILabel(currentData.aqi)}</span>
+                    {currentData.aqi && (
+                        <div className={`w-2 h-2 rounded-full ${
+                            currentData.aqi === 1 ? 'bg-green-400' : 
+                            currentData.aqi === 2 ? 'bg-lime-400' : 
+                            currentData.aqi === 3 ? 'bg-yellow-400' : 
+                            currentData.aqi === 4 ? 'bg-orange-500' : 'bg-red-500'
+                        }`}></div>
+                    )}
+                </div>
+              </div>
+
+              {/* Pressure CARD */}
+               <div className="bg-white/10 backdrop-blur-md rounded-[1.8rem] p-4 flex flex-col gap-1 border border-white/10 shadow-lg">
+                <div className="flex items-center gap-2 text-[10px] opacity-60 font-bold uppercase tracking-wider mb-1">
+                  <Gauge size={14} /> Pressione
+                </div>
+                <span className="text-xl font-medium">{currentData.main.pressure}<span className="text-sm opacity-60 font-normal"> hPa</span></span>
               </div>
             </div>
 

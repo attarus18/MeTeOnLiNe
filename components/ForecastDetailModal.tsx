@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Wind, Droplets, Gauge, CloudRain, Eye, ThermometerSun } from 'lucide-react';
+import { X, Wind, Droplets, Gauge, CloudRain, Eye, ThermometerSun, Leaf } from 'lucide-react';
 import { ForecastItem } from '../types';
 import { WeatherIcon } from './WeatherIcon';
 
@@ -7,9 +7,10 @@ interface ForecastDetailModalProps {
   item: ForecastItem | null;
   fullForecast: ForecastItem[];
   onClose: () => void;
+  aqi?: number; // Receive AQI
 }
 
-export const ForecastDetailModal: React.FC<ForecastDetailModalProps> = ({ item, fullForecast, onClose }) => {
+export const ForecastDetailModal: React.FC<ForecastDetailModalProps> = ({ item, fullForecast, onClose, aqi }) => {
   if (!item) return null;
 
   // Format date and time
@@ -22,6 +23,19 @@ export const ForecastDetailModal: React.FC<ForecastDetailModalProps> = ({ item, 
   const hourlyTrend = fullForecast.filter(f => 
     new Date(f.dt * 1000).toDateString() === selectedDayString
   );
+
+  const getAQILabel = (aqiVal: number) => {
+     if (aqiVal === 1) return "Ottima";
+     if (aqiVal === 2) return "Buona";
+     if (aqiVal === 3) return "Discreta";
+     if (aqiVal === 4) return "Scadente";
+     return "Pessima";
+  };
+  
+  const getAQIPercentage = (aqiVal: number) => {
+      // 1=20%, 5=100%
+      return Math.min(Math.max(aqiVal * 20, 10), 100);
+  }
 
   return (
     <>
@@ -72,6 +86,28 @@ export const ForecastDetailModal: React.FC<ForecastDetailModalProps> = ({ item, 
                                 <span className="font-semibold text-lg">{Math.round(hourItem.main.temp)}°</span>
                             </div>
                         ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Air Quality Section (If available) */}
+            {aqi && (
+                <div className="w-full bg-[#2c2c35] p-5 rounded-2xl border border-white/5 mb-3 relative overflow-hidden">
+                    <div className="flex justify-between items-center mb-2 z-10 relative">
+                        <div className="flex items-center gap-2 text-white/60 text-xs font-bold uppercase tracking-wider">
+                            <Leaf size={14} /> Qualità Aria
+                        </div>
+                        <span className="font-semibold">{getAQILabel(aqi)}</span>
+                    </div>
+                    
+                    {/* Visual Bar */}
+                    <div className="w-full h-2 bg-white/10 rounded-full mt-2 relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-green-400 via-yellow-400 to-red-500 opacity-80"></div>
+                        {/* Indicator */}
+                        <div 
+                            className="absolute top-0 bottom-0 w-1 bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]"
+                            style={{ left: `${getAQIPercentage(aqi)}%`, transition: 'left 1s ease-out' }}
+                        ></div>
                     </div>
                 </div>
             )}

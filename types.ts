@@ -42,6 +42,7 @@ export interface WeatherData {
   id: number;
   name: string;
   cod: number;
+  aqi?: number; // Added AQI field (1 = Good, 5 = Very Poor)
 }
 
 export interface ForecastItem {
