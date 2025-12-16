@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Menu, Heart, Droplets, Wind, Navigation, Plus, AlertCircle, RefreshCw, WifiOff, MapPinOff, Leaf, Gauge } from 'lucide-react';
+import { Menu, Heart, Droplets, Wind, Navigation, Plus, AlertCircle, RefreshCw, WifiOff, MapPinOff, Leaf, Gauge, Search } from 'lucide-react';
 import { fetchWeatherByCity, fetchWeatherByCoords, fetchForecastByCoords } from './services/weatherService';
 import { WeatherData, ForecastData, FavoriteCity, ForecastItem, AppLocation } from './types';
 import { WeatherIcon } from './components/WeatherIcon';
@@ -20,7 +20,23 @@ function App() {
     }
   });
 
-  const [currentIndex, setCurrentIndex] = useState(0);
+  // Constructed list of all locations (GPS + Favorites)
+  // Define this BEFORE useState(currentIndex) so we can validate the saved index
+  const allLocations: AppLocation[] = [
+    { type: 'gps', id: 'gps', name: 'Posizione Corrente' },
+    ...favorites.map(f => ({ type: 'saved' as const, id: f.id, name: f.name, country: f.country }))
+  ];
+
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    try {
+        const savedIndex = localStorage.getItem('galaxy_weather_last_index');
+        const parsed = savedIndex ? parseInt(savedIndex, 10) : 0;
+        // Validate index exists
+        return parsed < allLocations.length ? parsed : 0;
+    } catch {
+        return 0;
+    }
+  });
   
   // Caches to store loaded data so swiping is instant
   const [weatherCache, setWeatherCache] = useState<{[key: number]: WeatherData}>({});
@@ -37,12 +53,6 @@ function App() {
   // Touch handling for swipe
   const touchStartRef = useRef<number | null>(null);
   const touchEndRef = useRef<number | null>(null);
-
-  // Constructed list of all locations (GPS + Favorites)
-  const allLocations: AppLocation[] = [
-    { type: 'gps', id: 'gps', name: 'Posizione Corrente' },
-    ...favorites.map(f => ({ type: 'saved' as const, id: f.id, name: f.name, country: f.country }))
-  ];
 
   // --- Logic ---
 
@@ -65,6 +75,11 @@ function App() {
       window.removeEventListener('offline', handleOffline);
     };
   }, [currentIndex, errorMap]);
+
+  // Persist current index
+  useEffect(() => {
+     localStorage.setItem('galaxy_weather_last_index', currentIndex.toString());
+  }, [currentIndex]);
 
   const getBackgroundClass = (iconCode: string) => {
     // 1. Prioritize FOG (Nebbia) logic implies a murky atmosphere day or night.
@@ -118,7 +133,7 @@ function App() {
       if (location.type === 'gps') {
         // Handle GPS
         if (!navigator.geolocation) {
-             updateCache(index, null, null, { message: "Geolocalizzazione non supportata dal browser.", type: 'gps' });
+             updateCache(index, null, null, { message: "Il tuo browser non supporta la geolocalizzazione.", type: 'gps' });
              return;
         }
         
@@ -133,30 +148,23 @@ function App() {
               } catch (e: any) {
                 // Network error during fetch despite having coords
                 updateCache(index, null, null, { message: e.message || "Errore di connessione.", type: 'network' });
-                resolve(); // Resolved promise but with error state handled
+                resolve();
               }
             },
             (err) => {
               // Specific GPS Errors
               let msg = "Impossibile rilevare la posizione.";
-              let type: 'gps' | 'general' = 'gps';
-
-              switch(err.code) {
-                  case 1: // PERMISSION_DENIED
-                      msg = "Permesso di localizzazione negato. Abilita la posizione nelle impostazioni.";
-                      break;
-                  case 2: // POSITION_UNAVAILABLE
-                      msg = "Segnale GPS debole o GPS spento. Attiva la posizione.";
-                      break;
-                  case 3: // TIMEOUT
-                      msg = "Timeout richiesta GPS. Spostati in un'area aperta o riprova.";
-                      break;
-              }
               
-              updateCache(index, null, null, { message: msg, type: type });
-              resolve(); // Don't crash, just show error UI
+              // Friendly message for manual users
+              if (err.code === 1) msg = "Accesso alla posizione negato.";
+              else if (err.code === 2) msg = "Segnale GPS non disponibile.";
+              else if (err.code === 3) msg = "Timeout ricerca GPS.";
+
+              updateCache(index, null, null, { message: msg, type: 'gps' });
+              resolve(); 
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            // Reduced timeout to 5s for faster fallback to manual mode UI
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
           );
         });
       } else {
@@ -167,21 +175,18 @@ function App() {
       }
     } catch (err: any) {
       console.error(`Error loading index ${index}`, err);
-      // Catch-all for API errors (404, etc)
       updateCache(index, null, null, { message: err.message || "Errore di caricamento", type: 'general' });
     }
-  }, [allLocations]); // Re-create if locations change, but generally stable
+  }, [allLocations]);
 
   // Load data when index changes or locations change
   useEffect(() => {
-    // If we don't have data for current index, load it.
-    // Also re-check if we have an error (to allow retry)
     const hasData = !!weatherCache[currentIndex];
     const hasError = !!errorMap[currentIndex];
     
+    // Always reload if error (allows retry) or no data
     if (!hasData || hasError) {
-       // Debounce slightly to allow swiping without triggering instant loads
-       const timer = setTimeout(() => loadLocationData(currentIndex), 100);
+       const timer = setTimeout(() => loadLocationData(currentIndex), 50);
        return () => clearTimeout(timer);
     }
   }, [currentIndex, allLocations.length, loadLocationData]);
@@ -238,18 +243,21 @@ function App() {
         const weather = await fetchWeatherByCity(cityName);
         const newFav: FavoriteCity = { id: weather.id, name: weather.name, country: weather.sys.country };
         
+        // Optimistic update
+        const newIndex = allLocations.length;
         setFavorites(prev => [...prev, newFav]);
-        setWeatherCache(prev => ({ ...prev, [allLocations.length]: weather }));
+        setWeatherCache(prev => ({ ...prev, [newIndex]: weather }));
         
         fetchForecastByCoords(weather.coord.lat, weather.coord.lon)
-            .then((fore: ForecastData) => setForecastCache(prev => ({ ...prev, [allLocations.length]: fore })))
+            .then((fore: ForecastData) => setForecastCache(prev => ({ ...prev, [newIndex]: fore })))
             .catch(() => {});
 
-        setCurrentIndex(allLocations.length);
-        setLoadingMap(prev => ({...prev, [allLocations.length]: false}));
+        setCurrentIndex(newIndex);
+        setLoadingMap(prev => ({...prev, [newIndex]: false}));
 
     } catch (e: any) {
         alert("Città non trovata: " + cityName);
+        // Clean up loading state for the potential new index
         setLoadingMap(prev => ({...prev, [allLocations.length]: false}));
     }
   };
@@ -392,26 +400,33 @@ function App() {
         ) : currentError ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center w-full max-w-sm mx-auto mt-10 animate-slide-up">
             <div className="bg-white/10 p-8 rounded-[2rem] backdrop-blur-md border border-white/20 shadow-2xl w-full flex flex-col items-center">
-              <ErrorIcon size={48} className="text-red-300 mb-4 opacity-80" />
+              <ErrorIcon size={48} className="text-white/40 mb-4" />
               <h3 className="text-xl font-semibold mb-2">
-                  {currentError.type === 'network' ? 'Nessuna Connessione' : (currentError.type === 'gps' ? 'Posizione non disponibile' : 'Errore')}
+                  {currentError.type === 'network' ? 'Nessuna Connessione' : (currentError.type === 'gps' ? 'Posizione Manuale' : 'Errore')}
               </h3>
-              <p className="opacity-80 mb-8 text-sm leading-relaxed">{currentError.message}</p>
+              <p className="opacity-80 mb-8 text-sm leading-relaxed">
+                  {currentError.type === 'gps' 
+                    ? "Il GPS è disattivato o non disponibile. Cerca la tua città manualmente." 
+                    : currentError.message}
+              </p>
               
               <div className="flex flex-col w-full gap-3">
-                <button 
-                  onClick={() => loadLocationData(currentIndex)}
-                  className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3.5 rounded-2xl font-semibold transition-all active:scale-95 flex items-center justify-center gap-2"
-                >
-                  <RefreshCw size={18} /> Riprova
-                </button>
-                {/* Fallback to Manual Search if GPS fails */}
+                {currentError.type === 'network' && (
+                    <button 
+                    onClick={() => loadLocationData(currentIndex)}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3.5 rounded-2xl font-semibold transition-all active:scale-95 flex items-center justify-center gap-2"
+                    >
+                    <RefreshCw size={18} /> Riprova
+                    </button>
+                )}
+                
+                {/* Always show manual search for GPS errors */}
                 {currentError.type === 'gps' && currentIndex === 0 && (
                      <button 
                      onClick={() => setIsDrawerOpen(true)}
-                     className="w-full bg-white/10 hover:bg-white/20 text-white py-3.5 rounded-2xl font-semibold transition-all active:scale-95 flex items-center justify-center gap-2"
+                     className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3.5 rounded-2xl font-semibold transition-all active:scale-95 flex items-center justify-center gap-2"
                    >
-                     Cerca Città Manualmente
+                     <Search size={18} /> Cerca Città
                    </button>
                 )}
               </div>
