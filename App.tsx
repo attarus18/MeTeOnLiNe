@@ -5,6 +5,7 @@ import { WeatherData, ForecastData, FavoriteCity, ForecastItem, AppLocation } fr
 import { WeatherIcon } from './components/WeatherIcon';
 import { Drawer } from './components/Drawer';
 import { ForecastDetailModal } from './components/ForecastDetailModal';
+import { MetricDetailModal, MetricType } from './components/MetricDetailModal';
 
 function App() {
   // --- State Management ---
@@ -28,6 +29,8 @@ function App() {
   const [errorMap, setErrorMap] = useState<{[key: number]: { message: string, type: 'network' | 'gps' | 'general' }}>({});
 
   const [selectedForecastItem, setSelectedForecastItem] = useState<ForecastItem | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<MetricType | null>(null);
+
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -305,12 +308,20 @@ function App() {
         onTouchEnd={handleTouchEnd}
     >
       
-      {/* Detail Modal */}
+      {/* General Forecast Modal (Hourly/Daily general view) */}
       <ForecastDetailModal 
         item={selectedForecastItem} 
         fullForecast={currentForecast?.list || []}
         onClose={() => setSelectedForecastItem(null)} 
-        aqi={currentData?.aqi} // Pass Current AQI as context
+        aqi={currentData?.aqi} 
+      />
+
+      {/* Specific Metric Detail Modal (Wind, Humidity, Pressure, AQI) */}
+      <MetricDetailModal
+        type={selectedMetric}
+        currentData={currentData}
+        forecastData={currentForecast}
+        onClose={() => setSelectedMetric(null)}
       />
 
       {/* Drawer */}
@@ -458,15 +469,22 @@ function App() {
               </button>
             </div>
 
-            {/* Grid Stats 2x2 */}
+            {/* Grid Stats 2x2 - Made Clickable for Specific Details */}
             <div className="w-full grid grid-cols-2 gap-3 mb-6">
-              <div className="bg-white/10 backdrop-blur-md rounded-[1.8rem] p-4 flex flex-col gap-1 border border-white/10 shadow-lg">
+              <div 
+                onClick={() => setSelectedMetric('wind')}
+                className="bg-white/10 backdrop-blur-md rounded-[1.8rem] p-4 flex flex-col gap-1 border border-white/10 shadow-lg cursor-pointer hover:bg-white/20 transition-all active:scale-95 group"
+              >
                 <div className="flex items-center gap-2 text-[10px] opacity-60 font-bold uppercase tracking-wider mb-1">
                   <Wind size={14} /> Vento
                 </div>
                 <span className="text-xl font-medium">{Math.round(currentData.wind.speed * 3.6)} <span className="text-sm opacity-60 font-normal">km/h</span></span>
               </div>
-              <div className="bg-white/10 backdrop-blur-md rounded-[1.8rem] p-4 flex flex-col gap-1 border border-white/10 shadow-lg">
+              
+              <div 
+                onClick={() => setSelectedMetric('humidity')}
+                className="bg-white/10 backdrop-blur-md rounded-[1.8rem] p-4 flex flex-col gap-1 border border-white/10 shadow-lg cursor-pointer hover:bg-white/20 transition-all active:scale-95 group"
+              >
                 <div className="flex items-center gap-2 text-[10px] opacity-60 font-bold uppercase tracking-wider mb-1">
                   <Droplets size={14} /> Umidità
                 </div>
@@ -474,7 +492,10 @@ function App() {
               </div>
               
               {/* AQI CARD */}
-              <div className="bg-white/10 backdrop-blur-md rounded-[1.8rem] p-4 flex flex-col gap-1 border border-white/10 shadow-lg relative overflow-hidden group">
+              <div 
+                onClick={() => setSelectedMetric('aqi')}
+                className="bg-white/10 backdrop-blur-md rounded-[1.8rem] p-4 flex flex-col gap-1 border border-white/10 shadow-lg relative overflow-hidden group cursor-pointer hover:bg-white/20 transition-all active:scale-95"
+              >
                 <div className="flex items-center gap-2 text-[10px] opacity-60 font-bold uppercase tracking-wider mb-1">
                   <Leaf size={14} /> Qualità Aria
                 </div>
@@ -492,7 +513,10 @@ function App() {
               </div>
 
               {/* Pressure CARD */}
-               <div className="bg-white/10 backdrop-blur-md rounded-[1.8rem] p-4 flex flex-col gap-1 border border-white/10 shadow-lg">
+               <div 
+                 onClick={() => setSelectedMetric('pressure')}
+                 className="bg-white/10 backdrop-blur-md rounded-[1.8rem] p-4 flex flex-col gap-1 border border-white/10 shadow-lg cursor-pointer hover:bg-white/20 transition-all active:scale-95 group"
+                >
                 <div className="flex items-center gap-2 text-[10px] opacity-60 font-bold uppercase tracking-wider mb-1">
                   <Gauge size={14} /> Pressione
                 </div>
